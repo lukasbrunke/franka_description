@@ -391,7 +391,7 @@ def main(args=None):
 
     # Define the shapes to be published
     shapes = {
-        8 : {
+        0 : {
             'type': 'superquadric',
             'frame_id': 'fr3_link7',
             'position': [0.0, 0.0, 0.13],
@@ -455,7 +455,7 @@ def main(args=None):
             'scale': [0.065, 0.065, 0.13],
             'exponent': [0.5, 1.0]
         },
-        0 : {
+        8 : {
             'type': 'superquadric',
             'frame_id': 'fr3_link7',
             'position': [0.02, 0.02, 0.09],
