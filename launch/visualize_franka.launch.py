@@ -44,6 +44,10 @@ def robot_state_publisher_spawner(context: LaunchContext, arm_id, load_gripper, 
             name="robot_state_publisher",
             output="screen",
             parameters=[{"robot_description": robot_description}],
+            remappings=[
+                ("/tf", "/franka3/tf"),
+                ("/tf_static", "/franka3/tf_static")
+            ],
         )
     ]
 
@@ -93,6 +97,10 @@ def generate_launch_description():
                 package="joint_state_publisher_gui",
                 executable="joint_state_publisher_gui",
                 name="joint_state_publisher_gui",
+                remappings=[
+                ("/tf", "/franka3/tf"),
+                ("/tf_static", "/franka3/tf_static")
+            ],
             ),
             # Node(
             #     package="franka_vis_tools",  # Replace with your actual package name
@@ -104,6 +112,10 @@ def generate_launch_description():
                 executable="rviz2",
                 name="rviz2",
                 arguments=["--display-config", rviz_file],
+                remappings=[
+                ("/tf", "/franka3/tf"),
+                ("/tf_static", "/franka3/tf_static")
+            ],
             ),
         ]
     )
