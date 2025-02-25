@@ -391,6 +391,7 @@ def main(args=None):
 
     # Define the shapes to be published
     shapes = {
+        # Robot
         0 : {
             'type': 'superquadric',
             'frame_id': 'fr3_link7',
@@ -462,6 +463,15 @@ def main(args=None):
             'rotation': axis_angle_ee,  # axis-angle
             'scale': [0.07, 0.03, 0.045],
             'exponent': [0.5, 1.0]
+        },
+        # Environment Obstacles
+        100 : {
+            'type': 'superquadric',
+            'frame_id': 'fr3_link0',
+            'position': [0.5, 0.0, 0.1],
+            'rotation': [0.0, 0.0, 0.0],  # axis-angle
+            'scale': [0.1, 0.1, 0.1],
+            'exponent': [0.5, 0.5]
         },
     }
 
