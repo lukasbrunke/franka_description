@@ -40,7 +40,10 @@ class MultiMarkerPublisher(Node):
         # self.publish_cylinder()
         # self.publish_arrow()
         for key in self.shapes:
-            self.publish_shape(key)
+            if self.shapes[key]['type'] == 'superquadric':
+                self.publish_superquadric(key)
+            else:
+                self.publish_shape(key)
 
     def publish_shape(self, key):
         shape = self.shapes[key]
@@ -248,6 +251,124 @@ class MultiMarkerPublisher(Node):
         self.marker_publishers['arrow'].publish(marker)
         self.common_publisher.publish(marker)
 
+    def publish_superquadric(self, key):
+        shape = self.shapes[key]
+        # Get current parameters
+        a1 = shape['scale'][0]
+        a2 = shape['scale'][1]
+        a3 = shape['scale'][2]
+        e1 = shape['exponent'][0]
+        e2 = shape['exponent'][1]
+        pos_x = shape['position'][0]
+        pos_y = shape['position'][1]
+        pos_z = shape['position'][2]
+        
+        # Generate the superquadric mesh
+        vertices, triangles = generate_superquadric_mesh(a1, a2, a3, e1, e2)
+        
+        # Create a marker for the mesh
+        marker = Marker()
+        marker.header.frame_id = shape['frame_id']
+        marker.header.stamp = self.get_clock().now().to_msg()
+        marker.id = 0
+        marker.type = Marker.TRIANGLE_LIST
+        marker.action = Marker.ADD
+        
+        # Set position
+        marker.pose.position.x = pos_x
+        marker.pose.position.y = pos_y
+        marker.pose.position.z = pos_z
+        
+        # Set rotation from axis angle
+        quat = pin.Quaternion(pin.exp3(np.array(shape['rotation'])))
+        quat.normalize()
+        quat = quat.coeffs()
+        marker.pose.orientation.x = quat[0]
+        marker.pose.orientation.y = quat[1]
+        marker.pose.orientation.z = quat[2]
+        marker.pose.orientation.w = quat[3]
+        
+        # Scale - for TRIANGLE_LIST this is just 1.0
+        marker.scale.x = 1.0
+        marker.scale.y = 1.0
+        marker.scale.z = 1.0
+        
+        # Color
+        marker.color.r = 1.0
+        marker.color.g = 0.0
+        marker.color.b = 0.0
+        marker.color.a = 0.8
+        
+        # Add all triangles to the marker
+        for triangle in triangles:
+            for vertex_idx in triangle:
+                p = Point()
+                p.x = vertices[vertex_idx][0]
+                p.y = vertices[vertex_idx][1]
+                p.z = vertices[vertex_idx][2]
+                marker.points.append(p)
+
+        # Set the lifetime (0 means forever)
+        marker.lifetime.sec = 0
+        
+        # Publish to the type-specific topic
+        self.marker_publishers[key].publish(marker)
+        # Also publish to the common topic
+        self.common_publisher.publish(marker)
+
+
+def generate_superquadric_mesh(a1, a2, a3, e1, e2, resolution=20):
+    """
+    Generate a superquadric mesh.
+    
+    Parameters:
+    a1, a2, a3: scale parameters along x, y, and z axes
+    e1: east-west exponent
+    e2: north-south exponent
+    resolution: number of points along each parameter
+    
+    Returns:
+    vertices: list of 3D points
+    triangles: list of triangle indices
+    """
+    # Generate parameter space
+    eta = np.linspace(-np.pi/2, np.pi/2, resolution)
+    omega = np.linspace(-np.pi, np.pi, resolution)
+    eta, omega = np.meshgrid(eta, omega)
+    
+    # Compute the surface
+    x = a1 * sign_pow(np.cos(eta), e1) * sign_pow(np.cos(omega), e2)
+    y = a2 * sign_pow(np.cos(eta), e1) * sign_pow(np.sin(omega), e2)
+    z = a3 * sign_pow(np.sin(eta), e1)
+    
+    # Create vertices and faces for the mesh
+    vertices = []
+    for i in range(resolution):
+        for j in range(resolution):
+            vertices.append([x[i, j], y[i, j], z[i, j]])
+    
+    triangles = []
+    for i in range(resolution-1):
+        for j in range(resolution-1):
+            # Calculate vertex indices
+            v0 = i * resolution + j
+            v1 = i * resolution + (j + 1)
+            v2 = (i + 1) * resolution + j
+            v3 = (i + 1) * resolution + (j + 1)
+            
+            # Add two triangles for each quad face
+            triangles.append([v0, v1, v2])
+            triangles.append([v1, v3, v2])
+    
+    return vertices, triangles
+    
+
+def sign_pow(x, a):
+    """
+    Compute sign(x) * |x|^a
+    """
+    return np.sign(x) * (np.abs(x) ** a)
+
 
 def main(args=None):
     # End effector shape orientation
@@ -270,61 +391,77 @@ def main(args=None):
 
     # Define the shapes to be published
     shapes = {
-        0 : {
-            'type': 'cube',
+        8 : {
+            'type': 'superquadric',
             'frame_id': 'fr3_link7',
-            'position': [0.0, 0.0, 0.127],
+            'position': [0.0, 0.0, 0.13],
             'rotation': axis_angle_ee,  # axis-angle
-            'scale': [0.22, 0.095, 0.04]
+            'scale': [0.11, 0.05, 0.02],
+            'exponent': [0.3, 0.3]
         },
         1 : {
-            'type': 'cylinder',
+            'type': 'superquadric',
             'frame_id': 'fr3_link6',
             'position': [0.0, 0.0, -0.04],
             'rotation': [0.0, 0.0, 0.0],  # axis-angle
-            'scale': [0.12, 0.12, 0.2]
+            'scale': [0.06, 0.06, 0.1],
+            'exponent': [0.5, 1.0]
         },
         2: {
-            'type': 'cylinder',
+            'type': 'superquadric',
             'frame_id': 'fr3_link6',
-            'position': [0.088, -0.015, 0.0],
+            'position': [0.088, -0.016, 0.0],
             'rotation': [np.pi/2, 0.0, 0.0],  # axis-angle
-            'scale': [0.09, 0.09, 0.2]
+            'scale': [0.05, 0.05, 0.11],
+            'exponent': [0.5, 1.0]
         },
         3: {
-            'type': 'cylinder',
+            'type': 'superquadric',
             'frame_id': 'fr3_link5',
             'position': [0.0, 0.09, -0.1],
             'rotation': axis_angle_link5,  # axis-angle
-            'scale': [0.08, 0.285, 0.05]
+            'scale': [0.04, 0.15, 0.025],
+            'exponent': [0.5, 1.0]
         },
         4: {
-            'type': 'cylinder',
+            'type': 'superquadric',
             'frame_id': 'fr3_link4',
-            'position': [-0.088, 0.115, 0.0],
+            'position': [-0.084, 0.115, 0.0],
             'rotation': [np.pi/2, 0.0, 0.0],  # axis-angle
-            'scale': [0.125, 0.125, 0.21]
+            'scale': [0.06, 0.06, 0.11],
+            'exponent': [0.5, 1.0]
         },
         5: {
-            'type': 'cylinder',
+            'type': 'superquadric',
             'frame_id': 'fr3_link3',
             'position': [0.088, 0.00, 0.0],
             'rotation': [np.pi/2, 0.0, 0.0],  # axis-angle
-            'scale': [0.125, 0.125, 0.23]
+            'scale': [0.065, 0.065, 0.12],
+            'exponent': [0.5, 1.0]
         },
         6: {
-            'type': 'cylinder',
+            'type': 'superquadric',
             'frame_id': 'fr3_link2',
             'position': [0.0, -0.2, 0.0],
             'rotation': [np.pi/2, 0.0, 0.0],  # axis-angle
-            'scale': [0.125, 0.125, 0.22]
+            'scale': [0.065, 0.065, 0.115],
+            'exponent': [0.5, 1.0]
         },
         7: {
-            'type': 'cylinder',
+            'type': 'superquadric',
             'frame_id': 'fr3_link1',
             'position': [0.0, 0.0, 0.0],
             'rotation': [np.pi/2, 0.0, 0.0],  # axis-angle
-            'scale': [0.125, 0.125, 0.26]
+            'scale': [0.065, 0.065, 0.13],
+            'exponent': [0.5, 1.0]
+        },
+        0 : {
+            'type': 'superquadric',
+            'frame_id': 'fr3_link7',
+            'position': [0.02, 0.02, 0.09],
+            'rotation': axis_angle_ee,  # axis-angle
+            'scale': [0.07, 0.03, 0.045],
+            'exponent': [0.5, 1.0]
         },
     }
 
