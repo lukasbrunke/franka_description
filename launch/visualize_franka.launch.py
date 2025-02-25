@@ -65,7 +65,7 @@ def generate_launch_description():
     rviz_file = os.path.join(
         get_package_share_directory("franka_description"),
         "rviz",
-        "visualize_franka_shapes.rviz",
+        "visualize_franka_env.rviz",
     )
 
     robot_state_publisher_spawner_opaque_function = OpaqueFunction(
@@ -102,11 +102,6 @@ def generate_launch_description():
                 ("/tf_static", "/franka3/tf_static")
             ],
             ),
-            # Node(
-            #     package="franka_vis_tools",  # Replace with your actual package name
-            #     executable="sphere_publisher",
-            #     name="sphere_publisher",
-            # ),
             Node(
                 package="rviz2",
                 executable="rviz2",
